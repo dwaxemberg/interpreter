@@ -55,23 +55,31 @@
 (define lookup
   (lambda (name environment)
     (cond
-      ((null? environment) #f)
+      ((null? environment) 'none)
       ((eq? (caar environment) name) (cadar environment))
       (else (lookup name (cdr environment))))))
+
+(define lookupWithErr
+  (lambda (name environment)
+    (let ((val (lookup name environment)))
+      (cond
+        ((eq? val 'none) (error "You must declare a variable before using it"))
+        ((eq? (lookup name environment) 'null) (error "You must assign a variable before using it"))
+        (else val)))))
 
 ; add a value declaration to the environment
 (define declare
   (lambda (name value environment)
-    (if (lookup (name environment))
-        (error "You cannot redefine a variable!")
-        (cons (cons name (cons value '())) environment))))
+    (if (eq? (lookup name environment) 'none)
+        (cons (cons name (cons value '())) environment)
+        (error "You cannot redefine a variable!"))))
 
 ; binds a value to a variable in the environment
 (define bind
   (lambda (name value environment)
-    (if (lookup name environment)
-      (makeTuple value (cons (cons name (cons value '())) environment))
-      (error "You must declare a variable before assigning it"))))
+    (cond
+      ((eq? (lookup name environment) 'none) (error "You must declare a variable before assigning it"))
+      (else (makeTuple value (cons (cons name (cons value '())) environment))))))
 
 ; checks if something is an assignment
 (define assignment?
@@ -127,7 +135,7 @@
       ((number? expr) (makeTuple expr environment))
       ((eq? expr 'true) (makeTuple #t environment))
       ((eq? expr 'false) (makeTuple #f environment))
-      ((symbol? expr) (makeTuple (lookup expr environment) environment))
+      ((symbol? expr) (makeTuple (lookupWithErr expr environment) environment))
       ((null? (cdr expr)) (getVal (value (car expr) environment)))
       ((eq? (operator expr) '=) (bind (operand1 expr) (getVal (value (operand2 expr) environment)) (getEnv (value (operand2 expr) environment))))
       ((eq? (operator expr) '+) (binaryOp + expr environment))
