@@ -79,7 +79,15 @@
   (lambda (name value environment)
     (cond
       ((eq? (lookup name environment) 'none) (error "You must declare a variable before assigning it"))
-      (else (makeTuple value (cons (cons name (cons value '())) environment))))))
+      (else (makeTuple value (reassign name value environment))))))
+
+; reassign a variable in the environment and return the environment
+(define reassign
+  (lambda (name value environment)
+    (cond
+      ((null? environment) (error "You did something very wrong."))
+      ((eq? (caar environment) name) (cons (cons name (cons value '())) (cdr environment)))
+      (else (cons (car environment) (reassign name value (cdr environment)))))))
 
 ; checks if something is an assignment
 (define assignment?
