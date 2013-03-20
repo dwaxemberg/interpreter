@@ -2,7 +2,7 @@
 
 (load "verySimpleParser.scm")
 
-; main function, loops through the parse tree and calls functions to deal with the tuples. 
+; main function, loops through the parse tree and calls functions to deal with the tuples.
 (define interpret
   (lambda (parsetree)
       (letrec ((loop (lambda (parsetree environment)
@@ -11,11 +11,11 @@
                          ((declare? (car parsetree)) (loop (cdr parsetree) (if (null? (cddar parsetree))
                                                                                (declare (cadar parsetree) 'null environment)
                                                                                (if (pair? (value (caddar parsetree) environment))
-                                                                                       (bind (cadar parsetree) 
-                                                                                             (value (cadr (caddar parsetree)) (loop (cddar parsetree) (declare (cadar parsetree) 'null environment))) 
+                                                                                       (bind (cadar parsetree)
+                                                                                             (value (cadr (caddar parsetree)) (loop (cddar parsetree) (declare (cadar parsetree) 'null environment)))
                                                                                              (loop (cddar parsetree) (declare (cadar parsetree) 'null environment)))
                                                                                        (declare (cadar parsetree) (value (caddar parsetree) environment) environment)))))
-                         ((expression? (car parsetree)) (loop (cdr parsetree) (value (car parsetree) environment)))
+                         ((assignment? (car parsetree)) (loop (cdr parsetree) (value (car parsetree) environment)))
                          ((return? (car parsetree)) (value (cadar parsetree) environment))
                          ((ifStatement? (car parsetree)) (if (value (cadar parsetree) environment)
                                                              (loop (cons (caddar parsetree) (cdr parsetree)) environment)
@@ -63,42 +63,13 @@
 (define bind
   (lambda (name value environment)
     (if (lookup name environment)
-        (if (pair? value)
-            (bind name (cadar value) value)
-            (cons (cons name (cons value '())) environment))
-        (error "You must declare a variable before assigning it"))))
+      (makeTuple value (cons (cons name (cons value '())) environment))
+      (error "You must declare a variable before assigning it"))))
 
-; checks if something is an expression
-(define expression?
+; checks if something is an assignment
+(define assignment?
   (lambda (expr)
-    (cond
-      ((null? expr) #f)
-      ((number? expr) #t)
-      ((symbol? expr) #t)
-      ((boolean? expr) #t)
-      ((not (pair? expr)) #f)
-      ((null? (cdr expr)) (expression? (car expr)))
-      ((= (length expr) 3)
-       (and (or (eq? '= (operator expr)) 
-                (eq? '+ (operator expr)) 
-                (eq? '- (operator expr)) 
-                (eq? '* (operator expr)) 
-                (eq? '/ (operator expr)) 
-                (eq? '% (operator expr))
-                (eq? '== (operator expr))
-                (eq? '!= (operator expr))
-                (eq? '< (operator expr))
-                (eq? '> (operator expr))
-                (eq? '<= (operator expr))
-                (eq? '>= (operator expr))
-                (eq? '&& (operator expr))
-                (eq? '|| (operator expr))
-                ) 
-            (expression? (operand1 expr))
-            (expression? (operand2 expr))))
-      ((= (length expr) 2)
-       (and (or (eq? '- (operator expr)) (eq? '! (operator expr))) (expression? (operand1 expr))))
-      (else #f))))
+    (eq? '= (operator expr))))
 
 ; gets the operator portion of a tuple
 (define operator
@@ -116,31 +87,31 @@
     (caddr expr)))
 
 ; turns two values into a tuple
-(define makeTuple 
+(define makeTuple
   (lambda (arg1 arg2)
     (cons arg1 (cons arg2 '()))))
 
 ; takes a tuple containing a value and an environment and returns the value
 (define getVal
   (lambda (tup)
-    (car tup)))
+    (if (list? tup) (car tup) tup)))
 
 ; takes a tuple containing a value and an environmment and returns the environment
 (define getEnv
   (lambda (tup)
-    (cadr tup)))
+    (if (list? tup) (cadr tup) tup)))
 
 ; recursively evaluates an expression and returns the resulting environment
 (define value
   (lambda (expr environment)
     (cond
-      ((number? expr) (makeTuple expr environment))
-      ((eq? expr 'true) (makeTuple #t environment))
-      ((eq? expr 'false) (makeTuple #f environment))
-      ((symbol? expr) (makeTuple (lookup expr environment) environment))
+      ((number? expr) expr)
+      ((eq? expr 'true) #t)
+      ((eq? expr 'false) #f)
+      ((symbol? expr) (lookup expr environment))
       ((null? (cdr expr)) (value (car expr) environment))
-      ((eq? (operator expr) '=) (bind (operand1 expr) (value (operand2 expr) environment) environment))
-      ((eq? (operator expr) '+) (+ (value (operand1 expr) environment) (value (operand2 expr) environment)))
+      ((eq? (operator expr) '=) (bind (operand1 expr) (getVal (value (operand2 expr) environment)) environment))
+      ((eq? (operator expr) '+) (+ (getVal (value (operand1 expr) environment)) (getVal (value (operand2 expr) environment))))
       ((and (eq? (length expr) 3) (eq? (operator expr) '-)) (- (value (operand1 expr) environment) (value (operand2 expr) environment)))
       ((eq? (operator expr) '*) (* (value (operand1 expr) environment) (value (operand2 expr) environment)))
       ((eq? (operator expr) '/) (quotient (value (operand1 expr) environment) (value (operand2 expr) environment)))
