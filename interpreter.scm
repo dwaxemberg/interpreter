@@ -10,7 +10,7 @@
                          ((null? parsetree) environment)
                          ((declare? (car parsetree)) (loop (cdr parsetree) (if (null? (cddar parsetree))
                                                                                (declare (cadar parsetree) 'null environment)
-                                                                               (if (pair? (caddar parsetree))
+                                                                               (if (pair? (value (caddar parsetree) environment))
                                                                                        (bind (cadar parsetree) 
                                                                                              (value (cadr (caddar parsetree)) (loop (cddar parsetree) (declare (cadar parsetree) 'null environment))) 
                                                                                              (loop (cddar parsetree) (declare (cadar parsetree) 'null environment)))
