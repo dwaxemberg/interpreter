@@ -10,7 +10,7 @@ task :test => [:clean] do
     File.open("tests/temp.c", 'w'){|f| f.puts(code)}
     puts `racket -e '(load "interpreter.scm")(interpret (parser "tests/temp.c"))'`
     puts
-    sleep(1)
+    STDIN.gets
   end
   File.delete("tests/temp.c")
 end

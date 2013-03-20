@@ -14,7 +14,7 @@
                                                                                       (getVal (value (caddar parsetree) environment))
                                                                                       (getEnv (value (caddar parsetree) environment))))))
                          ((assignment? (car parsetree)) (loop (cdr parsetree) (getEnv (value (car parsetree) environment))))
-                         ((return? (car parsetree)) (getVal (value (cadar parsetree) environment)))
+                         ((return? (car parsetree)) (fixBool (getVal (value (cadar parsetree) environment))))
                          ((ifStatement? (car parsetree)) (if (getVal (value (cadar parsetree) environment))
                                                              (loop (cons (caddar parsetree) (cdr parsetree)) (getEnv (value (cadar parsetree) environment)))
                                                              (if (null? (cdddar parsetree))
@@ -29,6 +29,13 @@
     (cond
       ((not (pair? expr)) #f)
       (else (eq? (car expr) 'var)))))
+
+(define fixBool
+  (lambda (val)
+    (cond
+      ((eq? val #t) 'true)
+      ((eq? val #f) 'false)
+      (else val))))
 
 ; checks if the expression is a return
 (define return?
@@ -99,6 +106,18 @@
   (lambda (tup)
     (if (list? tup) (cadr tup) tup)))
 
+(define binaryOp
+  (lambda (f expr environment)
+      (makeTuple (f (getVal (value (operand1 expr) environment)) (getVal (value (operand2 expr) (getEnv (value (operand1 expr) environment))))) (getEnv (value (operand2 expr) (getEnv (value (operand1 expr) environment)))))))
+
+(define myand
+  (lambda (a b)
+    (and a b)))
+
+(define myor
+  (lambda (a b)
+    (or a b)))
+
 ; recursively evaluates an expression and returns the resulting environment
 (define value
   (lambda (expr environment)
@@ -109,19 +128,19 @@
       ((symbol? expr) (makeTuple (lookup expr environment) environment))
       ((null? (cdr expr)) (getVal (value (car expr) environment)))
       ((eq? (operator expr) '=) (bind (operand1 expr) (getVal (value (operand2 expr) environment)) (getEnv (value (operand2 expr) environment))))
-      ((eq? (operator expr) '+) (makeTuple (+ (getVal (value (operand1 expr) environment)) (getVal (value (operand2 expr) environment))) environment))
-      ((and (eq? (length expr) 3) (eq? (operator expr) '-)) (makeTuple (- (getVal (value (operand1 expr) environment)) (getVal (value (operand2 expr) environment))) environment))
-      ((eq? (operator expr) '*) (makeTuple (* (getVal (value (operand1 expr) environment)) (getVal (value (operand2 expr) environment))) environment))
-      ((eq? (operator expr) '/) (makeTuple (quotient (getVal (value (operand1 expr) environment)) (getVal (value (operand2 expr) environment))) environment))
-      ((eq? (operator expr) '%) (makeTuple (remainder (getVal (value (operand1 expr) environment)) (getVal (value (operand2 expr) environment))) environment))
+      ((eq? (operator expr) '+) (binaryOp + expr environment))
+      ((and (eq? (length expr) 3) (eq? (operator expr) '-)) (binaryOp - expr environment))
+      ((eq? (operator expr) '*) (binaryOp * expr environment))
+      ((eq? (operator expr) '/) (binaryOp quotient expr environment))
+      ((eq? (operator expr) '%) (binaryOp remainder expr environment))
       ((and (eq? (length expr) 2) (eq? (operator expr) '-)) (makeTuple (- (getVal(value (operand1 expr) environment))) environment))
-      ((eq? (operator expr) '>) (makeTuple (> (getVal (value (operand1 expr) environment)) (getVal (value (operand2 expr) (getEnv (value (operand1 expr) environment))))) (getEnv (value (operand2 expr) (getEnv (value (operand1 expr) environment))))))
-      ((eq? (operator expr) '<) (makeTuple (< (getVal (value (operand1 expr) environment)) (getVal (value (operand2 expr) (getEnv (value (operand1 expr) environment))))) (getEnv (value (operand2 expr) (getEnv (value (operand1 expr) environment))))))
-      ((eq? (operator expr) '>=) (makeTuple (>= (getVal (value (operand1 expr) environment)) (getVal (value (operand2 expr) (getEnv (value (operand1 expr) environment))))) (getEnv (value (operand2 expr) (getEnv (value (operand1 expr) environment))))))
-      ((eq? (operator expr) '<=) (makeTuple (<= (getVal (value (operand1 expr) environment)) (getVal (value (operand2 expr) (getEnv (value (operand1 expr) environment))))) (getEnv (value (operand2 expr) (getEnv (value (operand1 expr) environment))))))
-      ((eq? (operator expr) '==) (makeTuple (eq? (getVal (value (operand1 expr) environment)) (getVal (value (operand2 expr) (getEnv (value (operand1 expr) environment))))) (getEnv (value (operand2 expr) (getEnv (value (operand1 expr) environment))))))
+      ((eq? (operator expr) '>) (binaryOp > expr environment))
+      ((eq? (operator expr) '<) (binaryOp < expr environment))
+      ((eq? (operator expr) '>=) (binaryOp >= expr environment))
+      ((eq? (operator expr) '<=) (binaryOp <= expr environment))
+      ((eq? (operator expr) '==) (binaryOp eq? expr environment))
       ((eq? (operator expr) '!=) (makeTuple (not (eq? (getVal (value (operand1 expr) environment)) (getVal (value (operand2 expr) (getEnv (value (operand1 expr) environment)))))) (getEnv (value (operand2 expr) (getEnv (value (operand1 expr) environment))))))
       ((eq? (operator expr) '!) (makeTuple (not (getVal (value (operand1 expr) environment))) (getEnv (value (operand1 expr) environment))))
-      ((eq? (operator expr) '&&) (makeTuple (and (getVal (value (operand1 expr) environment)) (getVal (value (operand2 expr) (getEnv (value (operand1 expr) environment))))) (getEnv (value (operand2 expr) (getEnv (value (operand1 expr) environment))))))
-      ((eq? (operator expr) '||) (makeTuple (or (getVal (value (operand1 expr) environment)) (getVal (value (operand2 expr) (getEnv (value (operand1 expr) environment))))) (getEnv (value (operand2 expr) (getEnv (value (operand1 expr) environment))))))
+      ((eq? (operator expr) '&&) (binaryOp myand expr environment))
+      ((eq? (operator expr) '||) (binaryOp myor expr environment))
       (else (error "wat")))))
