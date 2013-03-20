@@ -8,20 +8,35 @@
       (letrec ((loop (lambda (parsetree environment)
                        (cond
                          ((null? parsetree) environment)
-                         ((declare? (car parsetree)) (loop (cdr parsetree) (if (null? (cddar parsetree))
+                         ((operator? (car parsetree) 'var) (loop (cdr parsetree) (if (null? (cddar parsetree))
                                                                              (declare (cadar parsetree) 'null environment)
                                                                              (declare (cadar parsetree)
                                                                                       (getVal (value (caddar parsetree) environment))
                                                                                       (getEnv (value (caddar parsetree) environment))))))
-                         ((assignment? (car parsetree)) (loop (cdr parsetree) (getEnv (value (car parsetree) environment))))
-                         ((return? (car parsetree)) (fixBool (getVal (value (cadar parsetree) environment))))
-                         ((ifStatement? (car parsetree)) (if (getVal (value (cadar parsetree) environment))
+                         ((operator? (car parsetree) '=) (loop (cdr parsetree) (getEnv (value (car parsetree) environment))))
+                         ((operator? (car parsetree) 'return) (fixBool (getVal (value (cadar parsetree) environment))))
+                         
+                         ((operator? (car parsetree) 'if) (if (getVal (value (cadar parsetree) environment))
                                                              (loop (cons (caddar parsetree) (cdr parsetree)) (getEnv (value (cadar parsetree) environment)))
                                                              (if (null? (cdddar parsetree))
                                                                  (loop (cdr parsetree) (getEnv (value (cadar parsetree) environment)))
                                                                  (loop (cons (car (cdddar parsetree)) (cdr parsetree)) (getEnv (value (cadar parsetree) environment))))))
                          ))))
         (loop parsetree '()))))
+
+; checks if the expression is a keyword
+(define operator?
+  (lambda (expr op)
+    (cond
+      ((not (pair? expr)) #f)
+      ((else (eq? (car expr) op))))))
+
+; checks if the expression is a while statement
+(define while? 
+  (lambda (expr)
+    (cond
+      ((not (pair? expr)) #f)
+      ((else (eq? (car expr) 'while))))))
 
 ; checks if the expression is a declaration
 (define declare?
