@@ -1,6 +1,6 @@
 ; Written by Diego Waxemberg & Aaron Neyer
 
-(load "verySimpleParser.scm")
+(load "loopSimpleParser.scm")
 
 ; main function, loops through the parse tree and calls functions to deal with the tuples.
 (define interpret
