@@ -29,21 +29,7 @@
   (lambda (expr op)
     (cond
       ((not (pair? expr)) #f)
-      (else (eq? (car expr) op)))))
-
-; checks if the expression is a while statement
-(define while?
-  (lambda (expr)
-    (cond
-      ((not (pair? expr)) #f)
-      (else (eq? (car expr) 'while)))))
-
-; checks if the expression is a declaration
-(define declare?
-  (lambda (expr)
-    (cond
-      ((not (pair? expr)) #f)
-      (else (eq? (car expr) 'var)))))
+      (else (eq? (operator expr) op)))))
 
 (define fixBool
   (lambda (val)
@@ -51,20 +37,6 @@
       ((eq? val #t) 'true)
       ((eq? val #f) 'false)
       (else val))))
-
-; checks if the expression is a return
-(define return?
-  (lambda (expr)
-    (cond
-      ((not (pair? expr)) #f)
-      (else (eq? (car expr) 'return)))))
-
-; checks if the expression is an if statement
-(define ifStatement?
-  (lambda (expr)
-    (cond
-      ((not (pair? expr)) #f)
-      (else (eq? (car expr) 'if)))))
 
 ; looks up a name in the environment and returns the value associated with it
 (define lookup
@@ -103,11 +75,6 @@
       ((null? environment) (error "You did something very wrong."))
       ((eq? (caar environment) name) (cons (cons name (cons value '())) (cdr environment)))
       (else (cons (car environment) (reassign name value (cdr environment)))))))
-
-; checks if something is an assignment
-(define assignment?
-  (lambda (expr)
-    (eq? '= (operator expr))))
 
 ; gets the operator portion of a tuple
 (define operator
