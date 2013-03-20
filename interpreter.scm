@@ -22,6 +22,7 @@
                                                                                              (loopy condition body (loop body env)) 
                                                                                              (break env)))))
                                                                           (loopy (cadar parsetree) (cddar parsetree) environment))))))
+                         ((operator? (car parsetree) 'break) (return environment))
                          ((operator? (car parsetree) 'if) (if (getVal (value (cadar parsetree) environment))
                                                              (loop (cons (caddar parsetree) (cdr parsetree)) (getEnv (value (cadar parsetree) environment)))
                                                              (if (null? (cdddar parsetree))
