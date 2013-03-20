@@ -5,7 +5,8 @@
 ; main function, loops through the parse tree and calls functions to deal with the tuples.
 (define interpret
   (lambda (parsetree)
-      (letrec ((loop (lambda (parsetree environment)
+      (call/cc (lambda (return)
+                 (letrec ((loop (lambda (parsetree environment)
                        (cond
                          ((null? parsetree) environment)
                          ((operator? (car parsetree) 'var) (loop (cdr parsetree) (if (null? (cddar parsetree))
@@ -14,15 +15,30 @@
                                                                                       (getVal (value (caddar parsetree) environment))
                                                                                       (getEnv (value (caddar parsetree) environment))))))
                          ((operator? (car parsetree) '=) (loop (cdr parsetree) (getEnv (value (car parsetree) environment))))
-                         ((operator? (car parsetree) 'return) (fixBool (getVal (value (cadar parsetree) environment))))
-
+                         ((operator? (car parsetree) 'return) (return (fixBool (getVal (value (cadar parsetree) environment)))))
+                         ((operator? (car parsetree) 'while) (call/cc (lambda (break)
+                                                                        (letrec ((loopy (lambda (condition body env)
+                                                                                         (if (getVal (value condition env)) 
+                                                                                             (loopy condition body (loop body env)) 
+                                                                                             (break)))))
+                                                                          (loopy (cadar parsetree)(caddar parsetree) environment)))))
                          ((operator? (car parsetree) 'if) (if (getVal (value (cadar parsetree) environment))
                                                              (loop (cons (caddar parsetree) (cdr parsetree)) (getEnv (value (cadar parsetree) environment)))
                                                              (if (null? (cdddar parsetree))
                                                                  (loop (cdr parsetree) (getEnv (value (cadar parsetree) environment)))
                                                                  (loop (cons (car (cdddar parsetree)) (cdr parsetree)) (getEnv (value (cadar parsetree) environment))))))
                          ))))
-        (loop parsetree '()))))
+        (loop parsetree '()))))))
+
+(define while
+  (lambda (stmt bod env)
+    (call/cc (lambda (break)
+               (letrec ((loop (lambda (condition body env)
+                                (if condition 
+                                    (loop condition body (interpret body)) 
+                                    (break)))))
+                        (loop stmt bod env))))))
+
 
 ; checks if the expression is a keyword
 (define operator?
@@ -31,6 +47,7 @@
       ((not (pair? expr)) #f)
       (else (eq? (operator expr) op)))))
 
+; changes #t and #f to true and false respectively
 (define fixBool
   (lambda (val)
     (cond
