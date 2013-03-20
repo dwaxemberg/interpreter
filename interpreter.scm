@@ -115,14 +115,29 @@
   (lambda (expr)
     (caddr expr)))
 
+; turns two values into a tuple
+(define makeTuple 
+  (lambda (arg1 arg2)
+    (cons arg1 (cons arg2 '()))))
+
+; takes a tuple containing a value and an environment and returns the value
+(define getVal
+  (lambda (tup)
+    (car tup)))
+
+; takes a tuple containing a value and an environmment and returns the environment
+(define getEnv
+  (lambda (tup)
+    (cadr tup)))
+
 ; recursively evaluates an expression and returns the resulting environment
 (define value
   (lambda (expr environment)
     (cond
-      ((number? expr) expr)
-      ((eq? expr 'true) #t)
-      ((eq? expr 'false) #f)
-      ((symbol? expr) (lookup expr environment))
+      ((number? expr) (makeTuple expr environment))
+      ((eq? expr 'true) (makeTuple #t environment))
+      ((eq? expr 'false) (makeTuple #f environment))
+      ((symbol? expr) (makeTuple (lookup expr environment) environment))
       ((null? (cdr expr)) (value (car expr) environment))
       ((eq? (operator expr) '=) (bind (operand1 expr) (value (operand2 expr) environment) environment))
       ((eq? (operator expr) '+) (+ (value (operand1 expr) environment) (value (operand2 expr) environment)))
