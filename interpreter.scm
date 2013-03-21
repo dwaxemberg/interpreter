@@ -68,9 +68,10 @@
 ; add a value declaration to the environment
 (define declare
   (lambda (name value environment)
-    (if (eq? (lookup name environment) 'none)
-        (cons (cons name (cons value '())) environment)
-        (error "You cannot redefine a variable!"))))
+    (cond 
+      ((eq? (lookup name environment) 'none)(error "You cannot redefine a variable!"))
+      ((list? (caar environment))(cons (declare name value (car environment))(cdr environment)))
+      (else (cons (cons name (cons value '())) environment)))))
 
 ; binds a value to a variable in the environment
 (define bind
