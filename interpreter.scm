@@ -18,11 +18,14 @@
                          ((operator? (car parsetree) 'return) (return (fixBool (getVal (value (cadar parsetree) environment)))))
                          ((operator? (car parsetree) 'while) (loop (cdr parsetree)(call/cc (lambda (break)
                                                                         (letrec ((loopy (lambda (condition body env)
-                                                                                         (if (getVal (value condition env)) 
-                                                                                             (loopy condition body (cdr (loop body (declare 'break break env))))
-                                                                                             (break env)))))
+                                                                                         (call/cc (lambda (continue)
+                                                                                         (if (getVal (value condition env))
+                                                                                             (loopy condition body
+                                                                                                    (cddr (loop body (declare 'continue continue (declare 'break break env)))))
+                                                                                             (break env)))))))
                                                                           (loopy (cadar parsetree) (cddar parsetree) environment))))))
                          ((operator? (car parsetree) 'break)((lookup 'break environment) (cddr environment)))
+                         ((operator? (car parsetree) 'continue) ((lookup 'continue environment) (cddr environment)))
                          ((operator? (car parsetree) 'begin) (loop (cdr parsetree) (cdr (loop (cdar parsetree) (cons '() environment)))))
                          ((operator? (car parsetree) 'if) (if (getVal (value (cadar parsetree) environment))
                                                              (loop (cons (caddar parsetree) (cdr parsetree)) (getEnv (value (cadar parsetree) environment)))
@@ -74,7 +77,7 @@
 ; add a value declaration to the environment
 (define declare
   (lambda (name value environment)
-    (cond 
+    (cond
       ((not (eq? (lookup name environment) 'none))(error "You cannot redefine a variable!"))
       ((null? environment) (cons (cons name (cons value '())) environment))
       ((or (null? (car environment)) (list? (caar environment))) (cons (declare name value (car environment))(cdr environment)))
