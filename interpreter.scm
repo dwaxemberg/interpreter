@@ -121,12 +121,12 @@
 ; takes a tuple containing a value and an environment and returns the value
 (define getVal
   (lambda (tup)
-    (if (list? tup) (car tup) tup)))
+    (if (pair? tup) (car tup) tup)))
 
 ; takes a tuple containing a value and an environmment and returns the environment
 (define getEnv
   (lambda (tup)
-    (if (list? tup) (cadr tup) tup)))
+    (if (pair? tup) (cadr tup) tup)))
 
 (define binaryOp
   (lambda (f expr environment)
