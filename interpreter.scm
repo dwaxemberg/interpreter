@@ -23,7 +23,7 @@
                                                                                              (break env)))))
                                                                           (loopy (cadar parsetree) (cddar parsetree) environment))))))
                          ((operator? (car parsetree) 'break) (return environment))
-                         ((operator? (car parsetree) 'begin) (cons (loop (cdar parsetree) '()) environment))
+                         ((operator? (car parsetree) 'begin) (loop (cdr parsetree) (loop (cdar parsetree) (cons '() environment))))
                          ((operator? (car parsetree) 'if) (if (getVal (value (cadar parsetree) environment))
                                                              (loop (cons (caddar parsetree) (cdr parsetree)) (getEnv (value (cadar parsetree) environment)))
                                                              (if (null? (cdddar parsetree))
@@ -53,7 +53,7 @@
   (lambda (name environment)
     (cond
       ((null? environment) 'none)
-      ((list? (caar environment))(lookup name (cons (car environment) (cdr environment))))
+      ((or (null? (car environment)) (list? (caar environment))) (lookup name (append (car environment) (cdr environment))))
       ((eq? (caar environment) name) (cadar environment))
       (else (lookup name (cdr environment))))))
 
@@ -69,8 +69,9 @@
 (define declare
   (lambda (name value environment)
     (cond 
-      ((eq? (lookup name environment) 'none)(error "You cannot redefine a variable!"))
-      ((list? (caar environment))(cons (declare name value (car environment))(cdr environment)))
+      ((not (eq? (lookup name environment) 'none))(error "You cannot redefine a variable!"))
+      ((null? environment) (cons (cons name (cons value '())) environment))
+      ((or (null? (car environment)) (list? (caar environment))) (cons (declare name value (car environment))(cdr environment)))
       (else (cons (cons name (cons value '())) environment)))))
 
 ; binds a value to a variable in the environment
@@ -84,10 +85,19 @@
 (define reassign
   (lambda (name value environment)
     (cond
+      ((or (null? (car environment)) (list? (caar environment))) (if (eq? (getVal (tryReassign name value (car environment))) #t)
+                                                                     (cons (getEnv (tryReassign name value (car environment))) (cdr environment))
+                                                                     (cons (car environment) (reassign name value (cdr environment)))))
       ((null? environment) (error "You did something very wrong."))
-      ((eq? (caar environment) name) (cons (cons name (cons value '())) (cdr environment)))
+      ((eq? (caar environment) name) (cons (makeTuple name value) (cdr environment)))
       (else (cons (car environment) (reassign name value (cdr environment)))))))
 
+(define tryReassign
+  (lambda (name value environment)
+    (cond
+      ((null? environment) '())
+      ((eq? (caar environment) name) (makeTuple #t (cons (makeTuple name value) (cdr environment))))
+      (else (cons (car environment) (tryReassign name value (cdr environment)))))))
 ; gets the operator portion of a tuple
 (define operator
   (lambda (expr)
@@ -137,7 +147,7 @@
       ((number? expr) (makeTuple expr environment))
       ((eq? expr 'true) (makeTuple #t environment))
       ((eq? expr 'false) (makeTuple #f environment))
-      ((symbol? expr) (makeTuple (lookupWithErr expr environment) environment))
+      ((symbol? expr) (makeTuple (lookup expr environment) environment))
       ((null? (cdr expr)) (getVal (value (car expr) environment)))
       ((eq? (operator expr) '=) (bind (operand1 expr) (getVal (value (operand2 expr) environment)) (getEnv (value (operand2 expr) environment))))
       ((eq? (operator expr) '+) (binaryOp + expr environment))
@@ -155,4 +165,4 @@
       ((eq? (operator expr) '!) (makeTuple (not (getVal (value (operand1 expr) environment))) (getEnv (value (operand1 expr) environment))))
       ((eq? (operator expr) '&&) (binaryOp myand expr environment))
       ((eq? (operator expr) '||) (binaryOp myor expr environment))
-      (else (error "wat")))))
+      (else (error "watt")))))
