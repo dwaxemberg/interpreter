@@ -19,11 +19,11 @@
                          ((operator? (car parsetree) 'while) (loop (cdr parsetree)(call/cc (lambda (break)
                                                                         (letrec ((loopy (lambda (condition body env)
                                                                                          (if (getVal (value condition env)) 
-                                                                                             (loopy condition body (loop body env)) 
+                                                                                             (loopy condition body (cdr (loop body (declare 'break break env))))
                                                                                              (break env)))))
                                                                           (loopy (cadar parsetree) (cddar parsetree) environment))))))
-                         ((operator? (car parsetree) 'break) (return environment))
-                         ((operator? (car parsetree) 'begin) (loop (cdr parsetree) (loop (cdar parsetree) (cons '() environment))))
+                         ((operator? (car parsetree) 'break)((lookup 'break environment) (cddr environment)))
+                         ((operator? (car parsetree) 'begin) (loop (cdr parsetree) (cdr (loop (cdar parsetree) (cons '() environment)))))
                          ((operator? (car parsetree) 'if) (if (getVal (value (cadar parsetree) environment))
                                                              (loop (cons (caddar parsetree) (cdr parsetree)) (getEnv (value (cadar parsetree) environment)))
                                                              (if (null? (cdddar parsetree))
@@ -32,6 +32,12 @@
                          ))))
         (loop parsetree '()))))))
 
+; pops a stack off the environment
+(define popFrame
+  (lambda (environment)
+    (cond
+      ((or (null? (car environment))(pair? (caar environment))(eq? (caar environment) 'break)) (cdr environment))
+      (else environment))))
 
 ; checks if the expression is a keyword
 (define operator?
@@ -85,7 +91,8 @@
 (define reassign
   (lambda (name value environment)
     (cond
-      ((or (null? (car environment)) (list? (caar environment))) (if (eq? (getVal (tryReassign name value (car environment))) #t)
+      ((null? (car environment)) (cons (car environment) (reassign name value(cdr environment))))
+      ((list? (caar environment)) (if (eq? (getVal (tryReassign name value (car environment))) #t)
                                                                      (cons (getEnv (tryReassign name value (car environment))) (cdr environment))
                                                                      (cons (car environment) (reassign name value (cdr environment)))))
       ((null? environment) (error "You did something very wrong."))
