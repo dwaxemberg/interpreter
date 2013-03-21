@@ -23,6 +23,7 @@
                                                                                              (break env)))))
                                                                           (loopy (cadar parsetree) (cddar parsetree) environment))))))
                          ((operator? (car parsetree) 'break) (return environment))
+                         ((operator? (car parsetree) 'begin) (cons (loop (cdar parsetree) '()) environment))
                          ((operator? (car parsetree) 'if) (if (getVal (value (cadar parsetree) environment))
                                                              (loop (cons (caddar parsetree) (cdr parsetree)) (getEnv (value (cadar parsetree) environment)))
                                                              (if (null? (cdddar parsetree))
@@ -30,15 +31,6 @@
                                                                  (loop (cons (car (cdddar parsetree)) (cdr parsetree)) (getEnv (value (cadar parsetree) environment))))))
                          ))))
         (loop parsetree '()))))))
-
-(define while
-  (lambda (stmt bod env)
-    (call/cc (lambda (break)
-               (letrec ((loop (lambda (condition body env)
-                                (if condition 
-                                    (loop condition body (interpret body)) 
-                                    (break)))))
-                        (loop stmt bod env))))))
 
 
 ; checks if the expression is a keyword
@@ -61,6 +53,7 @@
   (lambda (name environment)
     (cond
       ((null? environment) 'none)
+      ((list? (caar environment))(lookup name (cons (car environment) (cdr environment))))
       ((eq? (caar environment) name) (cadar environment))
       (else (lookup name (cdr environment))))))
 
