@@ -35,6 +35,16 @@
                          ))))
         (loop parsetree '()))))))
 
+; interprets a statment and returns the resulting environment
+(define interpret-statement
+  (lambda (stmnt environment)
+    (cond
+      ((null? stmnt) environment)
+      ((operator? stmnt 'var)(if (null? (cddr stmnt)) 
+                                 (declare (cadr stmnt) 'null environment) 
+                                 (declare (cadr stmnt) (getVal (value (cddr stmnt) environment)) (getEnv (value (cddr stmnt) environment)))))
+      )))
+    
 ; pops a stack off the environment
 (define popFrame
   (lambda (environment)
@@ -175,4 +185,4 @@
       ((eq? (operator expr) '!) (makeTuple (not (getVal (value (operand1 expr) environment))) (getEnv (value (operand1 expr) environment))))
       ((eq? (operator expr) '&&) (binaryOp myand expr environment))
       ((eq? (operator expr) '||) (binaryOp myor expr environment))
-      (else (error "watt")))))
+      (else (error "wat")))))
