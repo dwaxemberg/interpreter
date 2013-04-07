@@ -21,7 +21,7 @@
       ((operator? stmt 'return) ((lookup 'return environment) (fixBool (getVal (value (cadr stmt) environment)))))
       ((operator? stmt 'while) (while-stmt stmt environment))
       ((operator? stmt 'break) ((lookup 'break environment) (cddr environment)))
-      ((operator? stmt 'continue) ((lookup 'continue environment) (cdr environment)))
+      ((operator? stmt 'continue) ((lookup 'continue environment) (pop-stack environment)))
       ((operator? stmt 'begin) (begin-stmt stmt environment))
       ((operator? stmt 'if) (if-stmt stmt environment)))))
 
@@ -35,6 +35,12 @@
     (cond
       ((or (null? environment) (not (list? (caar environment)))) (cons '() environment))
       (else (cons (add-stack (car environment)) (cdr environment))))))
+
+(define pop-stack
+  (lambda (environment)
+    (cond
+      ((or (null? (car environment)) (not (list? (caar environment)))) (cdr environment))
+      (else (append (pop-stack (car environment)) (cdr environment))))))
 
 (define if-stmt
   (lambda (stmt environment)
@@ -61,13 +67,6 @@
     (if (null? (cddr stmt))
       (declare (cadr stmt) 'null environment)
       (declare (cadr stmt) (getVal (value (caddr stmt) environment)) (getEnv (value (caddr stmt) environment))))))
-
-; pops a stack off the environment
-(define popFrame
-  (lambda (environment)
-    (cond
-      ((or (null? (car environment))(pair? (caar environment))(eq? (caar environment) 'break)) (cdr environment))
-      (else environment))))
 
 ; checks if the expression is a keyword
 (define operator?
