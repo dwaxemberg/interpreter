@@ -8,7 +8,7 @@ task :test => [:clean] do
     puts v
     code = r.lines.to_a[2..-1].join
     File.open("tests/temp.c", 'w'){|f| f.puts(code)}
-    puts `racket -e '(load "interpreter.scm")(interpret (parser "tests/temp.c"))'`
+    puts `racket -e '(load "interpreter.scm")(interpret "tests/temp.c")'`
     puts
     STDIN.gets
   end

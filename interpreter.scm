@@ -4,47 +4,49 @@
 
 ; main function, loops through the parse tree and calls functions to deal with the tuples.
 (define interpret
-  (lambda (parsetree)
-      (call/cc (lambda (return)
-                 (letrec ((loop (lambda (parsetree environment)
-                       (cond
-                         ((null? parsetree) environment)
-                         ((operator? (car parsetree) 'var) (loop (cdr parsetree) (if (null? (cddar parsetree))
-                                                                             (declare (cadar parsetree) 'null environment)
-                                                                             (declare (cadar parsetree)
-                                                                                      (getVal (value (caddar parsetree) environment))
-                                                                                      (getEnv (value (caddar parsetree) environment))))))
-                         ((operator? (car parsetree) '=) (loop (cdr parsetree) (getEnv (value (car parsetree) environment))))
-                         ((operator? (car parsetree) 'return) (return (fixBool (getVal (value (cadar parsetree) environment)))))
-                         ((operator? (car parsetree) 'while) (loop (cdr parsetree)(call/cc (lambda (break)
-                                                                        (letrec ((loopy (lambda (condition body env)
-                                                                                         (call/cc (lambda (continue)
-                                                                                         (if (getVal (value condition env))
-                                                                                             (loopy condition body
-                                                                                                    (cddr (loop body (declare 'continue continue (declare 'break break env)))))
-                                                                                             (break env)))))))
-                                                                          (loopy (cadar parsetree) (cddar parsetree) environment))))))
-                         ((operator? (car parsetree) 'break)((lookup 'break environment) (cddr environment)))
-                         ((operator? (car parsetree) 'continue) ((lookup 'continue environment) (cddr environment)))
-                         ((operator? (car parsetree) 'begin) (loop (cdr parsetree) (cdr (loop (cdar parsetree) (cons '() environment)))))
-                         ((operator? (car parsetree) 'if) (if (getVal (value (cadar parsetree) environment))
-                                                             (loop (cons (caddar parsetree) (cdr parsetree)) (getEnv (value (cadar parsetree) environment)))
-                                                             (if (null? (cdddar parsetree))
-                                                                 (loop (cdr parsetree) (getEnv (value (cadar parsetree) environment)))
-                                                                 (loop (cons (car (cdddar parsetree)) (cdr parsetree)) (getEnv (value (cadar parsetree) environment))))))
-                         ))))
-        (loop parsetree '()))))))
+  (lambda (filename)
+      (call/cc (lambda (return) (interpret-statement-list (parser filename) (declare 'return return '()))))))
 
-; interprets a statment and returns the resulting environment
-(define interpret-statement
-  (lambda (stmnt environment)
+(define interpret-statement-list
+  (lambda (parsetree environment)
     (cond
-      ((null? stmnt) environment)
-      ((operator? stmnt 'var)(if (null? (cddr stmnt)) 
-                                 (declare (cadr stmnt) 'null environment) 
-                                 (declare (cadr stmnt) (getVal (value (cddr stmnt) environment)) (getEnv (value (cddr stmnt) environment)))))
-      )))
-    
+      ((null? parsetree) environment)
+      (else (interpret-statement-list (cdr parsetree) (interpret-statement (car parsetree) environment))))))
+
+(define interpret-statement
+  (lambda (stmt environment)
+    (cond
+      ((operator? stmt 'var) (declare-stmt stmt environment))
+      ((operator? stmt '=) (getEnv (value stmt environment)))
+      ((operator? stmt 'return) ((lookup 'return environment) (fixBool (getVal (value (cadr stmt) environment)))))
+      ((operator? stmt 'while) (while-stmt stmt environment))
+      ((operator? stmt 'break) ((lookup 'break environment) (cddr environment)))
+      ((operator? stmt 'begin) (cdr (interpret-statement-list (cdr stmt) (cons '() environment))))
+      ((operator? stmt 'if) (if-stmt stmt environment)))))
+
+(define if-stmt
+  (lambda (stmt environment)
+      (if (getVal (value (cadr stmt) environment))
+        (interpret-statement (caddr stmt) (getEnv (value (cadr stmt) environment)))
+        (if (null? (cdddr stmt))
+          (getEnv (value (cadr stmt) environment))
+          (interpret-statement (cadddr stmt) (getEnv (value (cadr stmt) environment)))))))
+
+(define while-stmt
+  (lambda (stmt environment)
+    (call/cc (lambda (break)
+               (letrec ((loop (lambda (condition body env)
+                               (if (getVal (value condition env))
+                                 (loop condition body (interpret-statement body (declare-continuation 'break break env)))
+                                 env))))
+                 (loop (cadr stmt) (caddr stmt) environment))))))
+
+(define declare-stmt
+  (lambda (stmt environment)
+    (if (null? (cddr stmt))
+      (declare (cadr stmt) 'null environment)
+      (declare (cadr stmt) (getVal (value (caddr stmt) environment)) (getEnv (value (caddr stmt) environment))))))
+
 ; pops a stack off the environment
 (define popFrame
   (lambda (environment)
@@ -91,6 +93,14 @@
       ((not (eq? (lookup name environment) 'none))(error "You cannot redefine a variable!"))
       ((null? environment) (cons (cons name (cons value '())) environment))
       ((or (null? (car environment)) (list? (caar environment))) (cons (declare name value (car environment))(cdr environment)))
+      (else (cons (cons name (cons value '())) environment)))))
+
+; allows redeclaring of variables, for continuations
+(define declare-continuation
+  (lambda (name value environment)
+    (cond
+      ((null? environment) (cons (cons name (cons value '())) environment))
+      ((or (null? (car environment)) (list? (caar environment))) (cons (declare name value (car environment)) (cdr environment)))
       (else (cons (cons name (cons value '())) environment)))))
 
 ; binds a value to a variable in the environment
@@ -167,7 +177,7 @@
       ((number? expr) (makeTuple expr environment))
       ((eq? expr 'true) (makeTuple #t environment))
       ((eq? expr 'false) (makeTuple #f environment))
-      ((symbol? expr) (makeTuple (lookup expr environment) environment))
+      ((symbol? expr) (makeTuple (lookupWithErr expr environment) environment))
       ((null? (cdr expr)) (getVal (value (car expr) environment)))
       ((eq? (operator expr) '=) (bind (operand1 expr) (getVal (value (operand2 expr) environment)) (getEnv (value (operand2 expr) environment))))
       ((eq? (operator expr) '+) (binaryOp + expr environment))
