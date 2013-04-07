@@ -1,6 +1,6 @@
 ; Written by Diego Waxemberg & Aaron Neyer
 
-(load "loopSimpleParser.scm")
+(load "functionParser.scm")
 
 ; main function, loops through the parse tree and calls functions to deal with the tuples.
 (define interpret
@@ -23,7 +23,23 @@
       ((operator? stmt 'break) ((lookup 'break environment) (cddr environment)))
       ((operator? stmt 'continue) ((lookup 'continue environment) (pop-stack environment)))
       ((operator? stmt 'begin) (begin-stmt stmt environment))
+      ((operator? stmt 'function) (function-stmt stmt environment))
+      ((operator? stmt 'funcall) (funcall-stmt stmt environment))
       ((operator? stmt 'if) (if-stmt stmt environment)))))
+
+(define funcall-stmt
+  (lambda (stmt environment)
+    (interpret-statement-list (cadr (lookup (cadr stmt) environment))(declare-multiple (car (lookup (cadr stmt) environment)) (cddr stmt) (add-stack environment)))))
+
+(define declare-multiple
+  (lambda (variables values environment)
+    (cond
+      ((null? variables)(print environment) environment)
+      (else (print variables)(print values)(declare-multiple (cdr variables) (cdr values) (declare-continuation (car variables) (getVal (value (car values) environment)) environment))))))
+
+(define function-stmt
+  (lambda (stmt environment)
+    (declare (cadr stmt) (cddr stmt) environment)))
 
 (define begin-stmt
   (lambda (stmt environment)
