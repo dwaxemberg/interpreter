@@ -1,8 +1,8 @@
-description: GCD should work
-value: 7
+description: Ifs and Whiles
+value: 164
 
-var a = 14;
-var b = 3 * a - 7;
+var a = 31160;
+var b = 1476;
 if (a < b) {
   var temp = a;
   a = b;

@@ -21,25 +21,40 @@
       ((operator? stmt 'return) ((lookup 'return environment) (fixBool (getVal (value (cadr stmt) environment)))))
       ((operator? stmt 'while) (while-stmt stmt environment))
       ((operator? stmt 'break) ((lookup 'break environment) (cddr environment)))
-      ((operator? stmt 'begin) (cdr (interpret-statement-list (cdr stmt) (cons '() environment))))
+      ((operator? stmt 'continue) ((lookup 'continue environment) (cdr environment)))
+      ((operator? stmt 'begin) (begin-stmt stmt environment))
       ((operator? stmt 'if) (if-stmt stmt environment)))))
+
+(define begin-stmt
+  (lambda (stmt environment)
+    (call/cc (lambda (continue)
+               (cdr (interpret-statement-list (cdr stmt) (declare-continuation 'continue continue (add-stack environment))))))))
+
+(define add-stack
+  (lambda (environment)
+    (cond
+      ((or (null? environment) (not (list? (caar environment)))) (cons '() environment))
+      (else (cons (add-stack (car environment)) (cdr environment))))))
 
 (define if-stmt
   (lambda (stmt environment)
-      (if (getVal (value (cadr stmt) environment))
-        (interpret-statement (caddr stmt) (getEnv (value (cadr stmt) environment)))
+    (let ((valenv (value (cadr stmt) environment)))
+      (if (getVal valenv)
+        (interpret-statement (caddr stmt) (getEnv valenv))
         (if (null? (cdddr stmt))
-          (getEnv (value (cadr stmt) environment))
-          (interpret-statement (cadddr stmt) (getEnv (value (cadr stmt) environment)))))))
+          (getEnv valenv)
+          (interpret-statement (cadddr stmt) (getEnv valenv)))))))
 
 (define while-stmt
   (lambda (stmt environment)
-    (call/cc (lambda (break)
-               (letrec ((loop (lambda (condition body env)
-                               (if (getVal (value condition env))
-                                 (loop condition body (interpret-statement body (declare-continuation 'break break env)))
-                                 env))))
-                 (loop (cadr stmt) (caddr stmt) environment))))))
+    (call/cc (lambda (break) (while-loop (cadr stmt) (caddr stmt) (declare-continuation 'break break environment))))))
+
+(define while-loop
+  (lambda (condition body env)
+    (let ((valenv (value condition env)))
+      (if (getVal (getVal valenv))
+        (while-loop condition body (interpret-statement body (getEnv valenv)))
+        (getEnv valenv)))))
 
 (define declare-stmt
   (lambda (stmt environment)
@@ -99,9 +114,9 @@
 (define declare-continuation
   (lambda (name value environment)
     (cond
-      ((null? environment) (cons (cons name (cons value '())) environment))
-      ((or (null? (car environment)) (list? (caar environment))) (cons (declare name value (car environment)) (cdr environment)))
-      (else (cons (cons name (cons value '())) environment)))))
+      ((null? environment) (cons (makeTuple name value) environment))
+      ((or (null? (car environment)) (list? (caar environment))) (cons (declare-continuation name value (car environment)) (cdr environment)))
+      (else (cons (makeTuple name value) environment)))))
 
 ; binds a value to a variable in the environment
 (define bind
@@ -115,9 +130,10 @@
   (lambda (name value environment)
     (cond
       ((null? (car environment)) (cons (car environment) (reassign name value(cdr environment))))
-      ((list? (caar environment)) (if (eq? (getVal (tryReassign name value (car environment))) #t)
-                                                                     (cons (getEnv (tryReassign name value (car environment))) (cdr environment))
-                                                                     (cons (car environment) (reassign name value (cdr environment)))))
+      ((list? (caar environment)) (let ((valenv (tryReassign name value (car environment))))
+                                    (if (eq? (getVal valenv) #t)
+                                    (cons (getEnv valenv) (cdr environment))
+                                  (cons (car environment) (reassign name value (cdr environment))))))
       ((null? environment) (error "You did something very wrong."))
       ((eq? (caar environment) name) (cons (makeTuple name value) (cdr environment)))
       (else (cons (car environment) (reassign name value (cdr environment)))))))
