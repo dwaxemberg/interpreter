@@ -5,7 +5,7 @@
 ; main function, loops through the parse tree and calls functions to deal with the tuples.
 (define interpret
   (lambda (filename)
-      (call/cc (lambda (return) (interpret-statement-list (parser filename) (declare 'return return '()))))))
+      (call/cc (lambda (return) (interpret-statement-list (append (parser filename) '((funcall main))) (declare 'return return '()))))))
 
 (define interpret-statement-list
   (lambda (parsetree environment)
@@ -29,13 +29,16 @@
 
 (define funcall-stmt
   (lambda (stmt environment)
-    (interpret-statement-list (cadr (lookup (cadr stmt) environment))(declare-multiple (car (lookup (cadr stmt) environment)) (cddr stmt) (add-stack environment)))))
+    (call/cc (lambda (return) 
+               (interpret-statement-list (cadr (lookup (cadr stmt) environment)) 
+                                         (declare-multiple (car (lookup (cadr stmt) environment)) 
+                                                           (cddr stmt) (declare-continuation 'return return (add-stack environment))))))))
 
 (define declare-multiple
   (lambda (variables values environment)
     (cond
-      ((null? variables)(print environment) environment)
-      (else (print variables)(print values)(declare-multiple (cdr variables) (cdr values) (declare-continuation (car variables) (getVal (value (car values) environment)) environment))))))
+      ((null? variables) environment)
+      (else (declare-multiple (cdr variables) (cdr values) (declare-continuation (car variables) (getVal (value (car values) environment)) environment))))))
 
 (define function-stmt
   (lambda (stmt environment)
@@ -113,7 +116,7 @@
     (let ((val (lookup name environment)))
       (cond
         ((eq? val 'none) (error "You must declare a variable before using it"))
-        ((eq? (lookup name environment) 'null) (error "You must assign a variable before using it"))
+        ((eq? val 'null) (error "You must assign a variable before using it"))
         (else val)))))
 
 ; add a value declaration to the environment
@@ -159,6 +162,7 @@
       ((null? environment) '())
       ((eq? (caar environment) name) (makeTuple #t (cons (makeTuple name value) (cdr environment))))
       (else (cons (car environment) (tryReassign name value (cdr environment)))))))
+
 ; gets the operator portion of a tuple
 (define operator
   (lambda (expr)
@@ -205,6 +209,7 @@
 (define value
   (lambda (expr environment)
     (cond
+      ((operator?  expr 'funcall) (funcall-stmt expr environment))
       ((number? expr) (makeTuple expr environment))
       ((eq? expr 'true) (makeTuple #t environment))
       ((eq? expr 'false) (makeTuple #f environment))
