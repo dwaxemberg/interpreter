@@ -24,7 +24,7 @@
       ((operator? stmt 'continue) ((lookup 'continue environment) environment))
       ((operator? stmt 'begin) (begin-stmt stmt environment))
       ((operator? stmt 'function) (function-stmt stmt environment))
-      ((operator? stmt 'funcall) (funcall-stmt stmt environment))
+      ((operator? stmt 'funcall) (let ((funcreturn (funcall-stmt stmt environment))) (if (eq? (cadr stmt) 'main) funcreturn environment)))
       ((operator? stmt 'if) (if-stmt stmt environment))
       (else (error (string-append "Unregonized statement: " (format "~a" (operator stmt))))))))
 
@@ -39,6 +39,7 @@
   (lambda (variables vals environment)
     (cond
       ((null? variables) environment)
+      ((eq? (car variables) '&) (declare-multiple (cddr variables) (cdr vals) (declare-continuation (cadr variables) (car vals) environment)))
       (else (declare-multiple (cdr variables) (cdr vals) (declare-continuation (car variables) (getVal (value (car vals) environment)) environment))))))
 
 (define function-stmt
@@ -132,8 +133,8 @@
 ; looks up a name in the environment and returns the value associated with it
 (define lookup
   (lambda (name environment)
-    (unbox (lookupBox name environment))))
-
+    (unbox (lookupBox name environment)))) 
+        
 (define lookupBox
   (lambda (name environment)
     (_lookupBox name (flatten-once environment))))
@@ -181,7 +182,7 @@
 ; takes a tuple containing a value and an environmment and returns the environment
 (define getEnv
   (lambda (tup)
-    (if (pair? tup) (cadr tup) tup)))
+    (cadr tup)))
 
 (define binaryOp
   (lambda (f expr environment)
