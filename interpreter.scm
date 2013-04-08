@@ -5,7 +5,7 @@
 ; main function, loops through the parse tree and calls functions to deal with the tuples.
 (define interpret
   (lambda (filename)
-      (call/cc (lambda (return) (interpret-statement-list (append (parser filename) '((funcall main))) (declare 'return return '(())))))))
+      (call/cc (lambda (return) (interpret-statement-list (append (parser filename) '((funcall main))) (declare-continuation 'return return '(())))))))
 
 (define interpret-statement-list
   (lambda (parsetree environment)
@@ -137,7 +137,10 @@
         
 (define lookupBox
   (lambda (name environment)
-    (_lookupBox name (flatten-once environment))))
+    (let ((lookupResult (unbox (_lookupBox name (flatten-once environment)))))
+    (if (and (symbol? lookupResult) (not (eq? lookupResult 'none))) 
+        (lookupBox lookupResult environment)
+        (_lookupBox name (flatten-once environment))))))
     
 (define _lookupBox
   (lambda (name environment)
@@ -182,7 +185,7 @@
 ; takes a tuple containing a value and an environmment and returns the environment
 (define getEnv
   (lambda (tup)
-    (cadr tup)))
+    (if (pair? tup) (cadr tup) tup)))
 
 (define binaryOp
   (lambda (f expr environment)

@@ -1,12 +1,11 @@
-var x = 10;
-var y = 15;
-
-swap(&a, &b) {
-    var temp = a;
-    a = b;
-    b = temp;
+factorial (x) {
+      if (x == 0)
+              return 1;
+        else
+                return x * factorial(x - 1);
 }
 
-main() {
-    swap(x, y);
+main () {
+      return factorial(6);
 }
+
