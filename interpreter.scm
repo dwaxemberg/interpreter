@@ -5,7 +5,7 @@
 ; main function, loops through the parse tree and calls functions to deal with the tuples.
 (define interpret
   (lambda (filename)
-      (call/cc (lambda (return) (interpret-statement-list (append (parser filename) '((funcall main))) (declare 'return return '()))))))
+      (call/cc (lambda (return) (interpret-statement-list (append (parser filename) '((funcall main))) (declare 'return return '(())))))))
 
 (define interpret-statement-list
   (lambda (parsetree environment)
@@ -26,7 +26,7 @@
       ((operator? stmt 'function) (function-stmt stmt environment))
       ((operator? stmt 'funcall) (funcall-stmt stmt environment))
       ((operator? stmt 'if) (if-stmt stmt environment))
-      (else (error (string-append "Unregonized statement: " (operator stmt)))))))
+      (else (error (string-append "Unregonized statement: " (format "~a" (operator stmt))))))))
 
 (define funcall-stmt
   (lambda (stmt environment)
@@ -48,22 +48,15 @@
 (define begin-stmt
   (lambda (stmt environment)
     (call/cc (lambda (continue)
-               (print (cdr stmt))
-               (print 'hi)
-               (print environment)
                (cdr (interpret-statement-list (cdr stmt) (declare-continuation 'continue continue (add-stack environment))))))))
 
 (define add-stack
   (lambda (environment)
-    (cond
-      ((or (null? environment) (not (list? (caar environment)))) (cons '() environment))
-      (else (cons (add-stack (car environment)) (cdr environment))))))
+    (cons '() environment)))
 
 (define pop-stack
   (lambda (environment)
-    (cond
-      ((or (null? (car environment)) (not (list? (caar environment)))) (cdr environment))
-      (else (append (pop-stack (car environment)) (cdr environment))))))
+    (cdr environment)))
 
 (define if-stmt
   (lambda (stmt environment)
@@ -89,7 +82,8 @@
   (lambda (stmt environment)
     (if (null? (cddr stmt))
       (declare (cadr stmt) 'null environment)
-      (declare (cadr stmt) (getVal (value (caddr stmt) environment)) (getEnv (value (caddr stmt) environment))))))
+      (let ((valenv (value (caddr stmt) environment)))
+        (declare (cadr stmt) (getVal valenv) (getEnv valenv))))))
 
 ; checks if the expression is a keyword
 (define operator?
@@ -110,18 +104,13 @@
 (define declare
   (lambda (name value environment)
     (cond
-      ((not (eq? (lookup name environment) 'none))(error "You cannot redefine a variable!"))
-      ((null? environment) (cons (makeTuple name (box value)) environment))
-      ((or (null? (car environment)) (list? (caar environment))) (cons (declare name value (car environment))(cdr environment)))
-      (else (cons (makeTuple name (box value)) environment)))))
+      ((not (eq? (lookup name environment) 'none)) (error "You cannot redefine a variable!"))
+      (else (cons (cons (makeTuple name (box value)) (car environment)) (cdr environment))))))
 
 ; allows redeclaring of variables, for continuations
 (define declare-continuation
   (lambda (name value environment)
-    (cond
-      ((null? environment) (cons (makeTuple name (box value)) environment))
-      ((or (null? (car environment)) (list? (caar environment))) (cons (declare-continuation name value (car environment)) (cdr environment)))
-      (else (cons (makeTuple name (box value)) environment)))))
+    (cons (cons (makeTuple name (box value)) (car environment)) (cdr environment))))
 
 ; binds a value to a variable in the environment
 (define bind
@@ -134,25 +123,11 @@
   (lambda (name value environment)
     (set-box! (lookupBox name environment) value) environment))
 
-; reassign a variable in the environment and return the environment
-;(define reassign
-;  (lambda (name value environment)
-;    (cond
-;      ((null? (car environment)) (cons (car environment) (reassign name value(cdr environment))))
-;      ((list? (caar environment)) (let ((valenv (tryReassign name value (car environment))))
-;                                    (if (eq? (getVal valenv) #t)
-;                                    (cons (getEnv valenv) (cdr environment))
-;                                  (cons (car environment) (reassign name value (cdr environment))))))
-;      ((null? environment) (error "You did something very wrong."))
-;      ((eq? (caar environment) name) (cons (makeTuple name value) (cdr environment)))
-;      (else (cons (car environment) (reassign name value (cdr environment)))))))
-
-;(define tryReassign
-;  (lambda (name value environment)
-;    (cond
-;      ((null? environment) '())
-;      ((eq? (caar environment) name) (makeTuple #t (cons (makeTuple name value) (cdr environment))))
-;      (else (cons (car environment) (tryReassign name value (cdr environment)))))))
+(define flatten-once
+  (lambda (l)
+    (cond
+      ((null? l) l)
+      (else (append (car l) (flatten-once (cdr l)))))))
 
 ; looks up a name in the environment and returns the value associated with it
 (define lookup
@@ -161,11 +136,14 @@
 
 (define lookupBox
   (lambda (name environment)
+    (_lookupBox name (flatten-once environment))))
+    
+(define _lookupBox
+  (lambda (name environment)
     (cond
-      ((null? environment) (box 'none))
-      ((or (null? (car environment)) (list? (caar environment))) (lookupBox name (append (car environment) (cdr environment))))
-      ((eq? (caar environment) name) (cadar environment))
-      (else (lookupBox name (cdr environment))))))
+    ((null? environment) (box 'none))
+    ((eq? (caar environment) name) (cadar environment))
+    (else (_lookupBox name (cdr environment))))))
 
 (define lookupWithErr
   (lambda (name environment)
