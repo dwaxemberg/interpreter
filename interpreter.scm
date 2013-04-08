@@ -21,7 +21,7 @@
       ((operator? stmt 'return) ((lookup 'return environment) (fixBool (getVal (value (cadr stmt) environment)))))
       ((operator? stmt 'while) (while-stmt stmt environment))
       ((operator? stmt 'break) ((lookup 'break environment) (cddr environment)))
-      ((operator? stmt 'continue) ((lookup 'continue environment) (pop-stack environment)))
+      ((operator? stmt 'continue) ((lookup 'continue environment) environment))
       ((operator? stmt 'begin) (begin-stmt stmt environment))
       ((operator? stmt 'function) (function-stmt stmt environment))
       ((operator? stmt 'funcall) (funcall-stmt stmt environment))
@@ -185,7 +185,9 @@
 
 (define binaryOp
   (lambda (f expr environment)
-      (makeTuple (f (getVal (value (operand1 expr) environment)) (getVal (value (operand2 expr) (getEnv (value (operand1 expr) environment))))) (getEnv (value (operand2 expr) (getEnv (value (operand1 expr) environment)))))))
+      (let ((valenv1 (value (operand1 expr) environment)) (valenv2 (value (operand2 expr) (getEnv (value (operand1 expr) environment))))) 
+                   (makeTuple (f (getVal valenv1) (getVal valenv2)) 
+                   (getEnv valenv2)))))
 
 (define myand
   (lambda (a b)
@@ -205,7 +207,7 @@
       ((eq? expr 'false) (makeTuple #f environment))
       ((symbol? expr) (makeTuple (lookupWithErr expr environment) environment))
       ((null? (cdr expr)) (getVal (value (car expr) environment)))
-      ((eq? (operator expr) '=) (bind (operand1 expr) (getVal (value (operand2 expr) environment)) (getEnv (value (operand2 expr) environment))))
+      ((eq? (operator expr) '=) (let ((valenv (value (operand2 expr) environment))) (bind (operand1 expr) (getVal valenv) (getEnv valenv))))
       ((eq? (operator expr) '+) (binaryOp + expr environment))
       ((and (eq? (length expr) 3) (eq? (operator expr) '-)) (binaryOp - expr environment))
       ((eq? (operator expr) '*) (binaryOp * expr environment))
@@ -218,7 +220,7 @@
       ((eq? (operator expr) '<=) (binaryOp <= expr environment))
       ((eq? (operator expr) '==) (binaryOp eq? expr environment))
       ((eq? (operator expr) '!=) (makeTuple (not (eq? (getVal (value (operand1 expr) environment)) (getVal (value (operand2 expr) (getEnv (value (operand1 expr) environment)))))) (getEnv (value (operand2 expr) (getEnv (value (operand1 expr) environment))))))
-      ((eq? (operator expr) '!) (makeTuple (not (getVal (value (operand1 expr) environment))) (getEnv (value (operand1 expr) environment))))
+      ((eq? (operator expr) '!) (let ((valenv (value (operand1 expr) environment))) (makeTuple (not (getVal valenv)) (getEnv valenv))))
       ((eq? (operator expr) '&&) (binaryOp myand expr environment))
       ((eq? (operator expr) '||) (binaryOp myor expr environment))
       (else (error "wat")))))
