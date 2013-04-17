@@ -1,4 +1,6 @@
-description:A recursive function.\nvalue:55\n\n
+description:A recursive function.
+value:55
+
 fib(a) {
     if (a == 0)
         return 0;

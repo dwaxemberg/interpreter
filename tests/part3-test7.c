@@ -1,4 +1,6 @@
-description:A function call in the parameter of a function.\nvalue:24\n\n
+description:A function call in the parameter of a function.
+value:24
+
 fact(n) {
     var r = 1;
     while (n > 1) {

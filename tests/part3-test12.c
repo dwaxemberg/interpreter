@@ -1,4 +1,6 @@
-description:Boolean parameters and return values.\nvalue:true\n\n
+description:Boolean parameters and return values.
+value:true
+
 minmax(a, b, min) {
     if (min && a < b || !min && a > b)
         return true;

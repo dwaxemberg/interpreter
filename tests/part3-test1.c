@@ -1,4 +1,6 @@
-description:Test a main function.\nvalue:10\n\n
+description:Test a main function.
+value:10
+
 main() {
     var x = 10;
     var y = 20;

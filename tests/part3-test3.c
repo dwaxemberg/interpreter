@@ -1,4 +1,6 @@
-description:A function that changes global variables.\nvalue:45\n\n
+description:A function that changes global variables.
+value:45
+
 var x = 1;
 var y = 10;
 var r = 0;

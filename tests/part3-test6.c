@@ -1,4 +1,6 @@
-description:Multiple function calls in an expression.\nvalue:20\n\n
+description:Multiple function calls in an expression.
+value:20
+
 fact(n) {
     var f = 1;
     while (n > 1) {

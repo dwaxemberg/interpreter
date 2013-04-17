@@ -1,4 +1,6 @@
-description:Functions with multiple parameters that hide global variables.\nvalue:1\n\n
+description:Functions with multiple parameters that hide global variables.
+value:1
+
 min(x, y, z) {
     if (x < y) {
         if (x < z)

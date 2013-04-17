@@ -1,4 +1,6 @@
-description:Call-by-reference test.\nvalue:3421\n\n
+description:Call-by-reference test.
+value:3421
+
 swap1(x, y) {
     var temp = x;
     x = y;

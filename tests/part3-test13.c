@@ -1,4 +1,6 @@
-description:Assignment side effects with function calls.\nvalue:20332\n\n
+description:Assignment side effects with function calls.
+value:20332
+
 var x;
 
 f(a,b) {

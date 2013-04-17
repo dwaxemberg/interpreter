@@ -1,4 +1,6 @@
-description:A function that uses global variables.\nvalue:14\n\n
+description:A function that uses global variables.
+value:14
+
 var x = 4;
 var y = 6 + x;
 

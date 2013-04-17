@@ -1,4 +1,6 @@
-description:A function call that ignores the return value.\nvalue:2\n\n
+description:A function call that ignores the return value.
+value:2
+
 var count = 0;
 
 f(a,b) {

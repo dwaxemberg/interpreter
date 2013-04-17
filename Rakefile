@@ -1,8 +1,8 @@
 task :test => [:clean] do 
-  Dir.entries("tests").select{|a| a=~/^test(?:[01][0-9]|2[0-4])\.c$/ || a=~/^assignment2-test\d+\.c$/}.collect{|t| File.join("tests", t)}.sort.each do |f|
+  Dir.entries("tests").select{|a| a=~/^part3-test\d+\.c$/}.collect{|t| File.join("tests", t)}.sort.each do |f|
     r = File.read(f)
-    d = r.lines.to_a[0].match(/description: (.*)\n/)[1]
-    v = r.lines.to_a[1].match(/value: (.*)\n/)[1]
+    d = r.lines.to_a[0].match(/description: ?(.*)\n/)[1]
+    v = r.lines.to_a[1].match(/value: ?(.*)\n/)[1]
     puts "Test for #{f}"
     puts d
     puts v

@@ -1,4 +1,6 @@
-description:A function without a return statement.\nvalue:35\n\n
+description:A function without a return statement.
+value:35
+
 var x = 0;
 var y = 0;
 
