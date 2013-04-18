@@ -18,7 +18,7 @@
     (cond
       ((operator? stmt 'var) (declare-stmt stmt environment))
       ((operator? stmt '=) (getEnv (value stmt environment)))
-      ((operator? stmt 'return) ((lookup 'return environment) (value (cadr stmt) environment)))
+      ((operator? stmt 'return) (let ((valenv (value (cadr stmt) environment))) (lookup 'return environment) (makeTuple (getVal valenv) (pop-stack (getEnv valenv)))))
       ((operator? stmt 'while) (while-stmt stmt environment))
       ((operator? stmt 'break) ((lookup 'break environment) (cddr environment)))
       ((operator? stmt 'continue) ((lookup 'continue environment) environment))
