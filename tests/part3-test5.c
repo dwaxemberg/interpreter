@@ -29,4 +29,4 @@ main() {
             if (min2 == min3)
                 return 1;
     return 0;
-    em_init(&mutex, 0, 1);
+}
