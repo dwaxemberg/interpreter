@@ -142,15 +142,15 @@
 ; looks up a name in the environment and returns the value associated with it
 (define lookup
   (lambda (name environment)
-    (unbox (lookupBox name environment)))) 
-        
+    (unbox (lookupBox name environment))))
+
 (define lookupBox
   (lambda (name environment)
     (let ((lookupResult (unbox (_lookupBox name (flatten-once environment)))))
-    (if (and (symbol? lookupResult) (not (eq? lookupResult 'none))) 
+    (if (and (symbol? lookupResult) (not (eq? lookupResult 'none)))
         (lookupBox lookupResult environment)
         (_lookupBox name (flatten-once environment))))))
-    
+
 (define _lookupBox
   (lambda (name environment)
     (cond
@@ -198,8 +198,8 @@
 
 (define binaryOp
   (lambda (f expr environment)
-      (let ((valenv1 (value (operand1 expr) environment)) (valenv2 (value (operand2 expr) (getEnv (value (operand1 expr) environment))))) 
-                   (makeTuple (f (getVal valenv1) (getVal valenv2)) 
+      (let ((valenv1 (value (operand1 expr) environment)) (valenv2 (value (operand2 expr) (getEnv (value (operand1 expr) environment)))))
+                   (makeTuple (f (getVal valenv1) (getVal valenv2))
                    (getEnv valenv2)))))
 
 (define myand
