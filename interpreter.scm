@@ -18,7 +18,7 @@
     (cond
       ((operator? stmt 'var) (declare-stmt stmt environment))
       ((operator? stmt '=) (getEnv (value stmt environment)))
-      ((operator? stmt 'return) ((lookup 'return environment) (fixBool (getVal (value (cadr stmt) environment)))))
+      ((operator? stmt 'return) ((lookup 'return environment) (value (cadr stmt) environment)))
       ((operator? stmt 'while) (while-stmt stmt environment))
       ((operator? stmt 'break) ((lookup 'break environment) (cddr environment)))
       ((operator? stmt 'continue) ((lookup 'continue environment) environment))
@@ -31,11 +31,18 @@
 (define funcall-stmt
   (lambda (stmt environment)
     (call/cc (lambda (return)
-               (if (eq? (length (cddr stmt)) (length (car (lookup (cadr stmt) environment))))
+               (if (eq? (numArguments (cddr stmt)) (numArguments (car (lookup (cadr stmt) environment))))
                    (interpret-statement-list (cadr (lookup (cadr stmt) environment))
                                              (declare-multiple (car (lookup (cadr stmt) environment))
                                                                (cddr stmt) (declare-continuation 'return return (add-stack environment))))
                    (error "Wrong number of arguments"))))))
+
+(define numArguments
+  (lambda (args)
+    (cond
+      ((null? args) 0)
+      ((eq? (car args) '&) (numArguments (cdr args)))
+      (else (+ 1 (numArguments (cdr args)))))))
 
 (define declare-multiple
   (lambda (variables vals environment)
