@@ -18,11 +18,11 @@
     (cond
       ((operator? stmt 'var) (declare-stmt stmt environment))
       ((operator? stmt '=) (getEnv (value stmt environment)))
-      ((operator? stmt 'return) (let ((valenv (value (cadr stmt) environment))) (lookup 'return environment) (makeTuple (getVal valenv) (pop-stack (getEnv valenv)))))
+      ((operator? stmt 'return) (let ((valenv (value (cadr stmt) environment))) ((lookup 'return environment) (makeTuple (getVal valenv) (pop-stack (getEnv valenv))))))
       ((operator? stmt 'while) (while-stmt stmt environment))
       ((operator? stmt 'break) ((lookup 'break environment) (cddr environment)))
       ((operator? stmt 'continue) ((lookup 'continue environment) environment))
-      ((operator? stmt 'begin) (begin-stmt stmt environment))
+      ((operator? stmt 'begin) (pop-stack (begin-stmt stmt environment)))
       ((operator? stmt 'function) (function-stmt stmt environment))
       ((operator? stmt 'funcall) (let ((funcreturn (funcall-stmt stmt environment))) (if (eq? (cadr stmt) 'main) funcreturn environment)))
       ((operator? stmt 'if) (if-stmt stmt environment))
@@ -58,7 +58,7 @@
 (define begin-stmt
   (lambda (stmt environment)
     (call/cc (lambda (continue)
-               (cdr (interpret-statement-list (cdr stmt) (declare-continuation 'continue continue (add-stack environment))))))))
+               (interpret-statement-list (cdr stmt) (declare-continuation 'continue continue (add-stack environment)))))))
 
 (define add-stack
   (lambda (environment)
@@ -147,7 +147,7 @@
 (define lookupBox
   (lambda (name environment)
     (let ((lookupResult (unbox (_lookupBox name (flatten-once environment)))))
-    (if (and (symbol? lookupResult) (not (eq? lookupResult 'none)))
+    (if (and (symbol? lookupResult) (not (eq? lookupResult 'none)) (not (eq? lookupResult 'null)))
         (lookupBox lookupResult environment)
         (_lookupBox name (flatten-once environment))))))
 
