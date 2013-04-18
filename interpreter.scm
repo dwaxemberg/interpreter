@@ -31,9 +31,11 @@
 (define funcall-stmt
   (lambda (stmt environment)
     (call/cc (lambda (return)
-               (interpret-statement-list (cadr (lookup (cadr stmt) environment))
-                                         (declare-multiple (car (lookup (cadr stmt) environment))
-                                                           (cddr stmt) (declare-continuation 'return return (add-stack environment))))))))
+               (if (eq? (length (cddr stmt)) (length (car (lookup (cadr stmt) environment))))
+                   (interpret-statement-list (cadr (lookup (cadr stmt) environment))
+                                             (declare-multiple (car (lookup (cadr stmt) environment))
+                                                               (cddr stmt) (declare-continuation 'return return (add-stack environment))))
+                   (error "Wrong number of arguments"))))))
 
 (define declare-multiple
   (lambda (variables vals environment)
