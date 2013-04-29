@@ -13,9 +13,13 @@
       ((null? parsetree) environment)
       (else (interpret-statement-list (cdr parsetree) (interpret-statement (car parsetree) environment))))))
 
+(define println
+  (lambda (todisplay)
+    (display todisplay)
+    (display "\n")))
+
 (define interpret-statement
   (lambda (stmt environment)
-    ;(display stmt)(display "\n")(display environment)(display "\n")
     (cond
       ((operator? stmt 'var) (declare-stmt stmt environment))
       ((operator? stmt '=) (begin (value stmt environment) environment))
@@ -50,7 +54,7 @@
     (cond
       ((null? variables) environment)
       ((eq? (car variables) '&) (declare-multiple (cddr variables) (cdr vals) (declare-continuation (cadr variables) (car vals) environment)))
-      (else (declare-multiple (cdr variables) (cdr vals) (declare-continuation (car variables) (value (car vals) environment) environment))))))
+      (else (declare-multiple (cdr variables) (cdr vals) (declare-continuation (car variables) (value (car vals) (pop-stack environment)) environment))))))
 
 (define function-stmt
   (lambda (stmt environment)
@@ -162,8 +166,7 @@
   (lambda (name environment)
     (let ((val (lookup name environment)))
       (cond
-        ((eq? val 'none) (error "FUCK"))
-         ;(begin (display "LOOKUP")(display "\n")(display name)(display "\n")(display environment)(display "\n") (error "You must declare a variable before using it")))
+        ((eq? val 'none) (error "You must declare a variable before using it"))
         ((eq? val 'null) (error "You must assign a variable before using it"))
         (else val)))))
 
@@ -191,9 +194,8 @@
 ; recursively evaluates an expression and returns the resulting environment
 (define value
   (lambda (expr environment)
-    ;(display "VALUE\n")(display expr)(display "\n")(display environment)(display "\n")
     (cond
-      ((operator?  expr 'funcall) (funcall-stmt expr environment))
+      ((operator? expr 'funcall) (funcall-stmt expr environment))
       ((number? expr) expr)
       ((eq? expr 'true) #t)
       ((eq? expr 'false) #f)
