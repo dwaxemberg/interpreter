@@ -22,6 +22,7 @@
   (lambda (stmt environment)
     (cond
       ((operator? stmt 'var) (declare-stmt stmt environment))
+      ((operator? stmt 'class) (declare-class stmt environment))
       ((operator? stmt '=) (begin (value stmt environment) environment))
       ((operator? stmt 'return) ((lookup 'return environment) (value (cadr stmt) environment)))
       ((operator? stmt 'while) (while-stmt stmt environment))
@@ -32,6 +33,12 @@
       ((operator? stmt 'funcall) (let ((funcreturn (funcall-stmt stmt environment))) (if (eq? (cadr stmt) 'main) funcreturn environment)))
       ((operator? stmt 'if) (if-stmt stmt environment))
       (else (error (string-append "Unregonized statement: " (format "~a" (operator stmt))))))))
+
+(define declare-class
+  (lambda (stmt environment)
+    (if (null? (caddr stmt))
+        (declare (cadr stmt) (cdddr stmt) environment)
+        (declare (cons (cadr stmt) (caddr stmt)) (cdddr stmt) environment))))
 
 (define funcall-stmt
   (lambda (stmt environment)
