@@ -5,7 +5,7 @@
 ; main function, loops through the parse tree and calls functions to deal with the tuples.
 (define interpret
   (lambda (filename)
-      (fixBool (getVal (call/cc (lambda (return) (interpret-statement-list (append (parser filename) '((funcall main))) (declare-continuation 'return return '(())))))))))
+      (fixBool (call/cc (lambda (return) (interpret-statement-list (append (parser filename) '((funcall main))) (declare-continuation 'return return '(()))))))))
 
 (define interpret-statement-list
   (lambda (parsetree environment)
@@ -15,10 +15,11 @@
 
 (define interpret-statement
   (lambda (stmt environment)
+    ;(display stmt)(display "\n")(display environment)(display "\n")
     (cond
       ((operator? stmt 'var) (declare-stmt stmt environment))
-      ((operator? stmt '=) (getEnv (value stmt environment)))
-      ((operator? stmt 'return) (let ((valenv (value (cadr stmt) environment))) ((lookup 'return environment) (makeTuple (getVal valenv) (pop-stack (getEnv valenv))))))
+      ((operator? stmt '=) (begin (value stmt environment) environment))
+      ((operator? stmt 'return) ((lookup 'return environment) (value (cadr stmt) environment)))
       ((operator? stmt 'while) (while-stmt stmt environment))
       ((operator? stmt 'break) ((lookup 'break environment) (cddr environment)))
       ((operator? stmt 'continue) ((lookup 'continue environment) environment))
@@ -49,7 +50,7 @@
     (cond
       ((null? variables) environment)
       ((eq? (car variables) '&) (declare-multiple (cddr variables) (cdr vals) (declare-continuation (cadr variables) (car vals) environment)))
-      (else (declare-multiple (cdr variables) (cdr vals) (declare-continuation (car variables) (getVal (value (car vals) environment)) environment))))))
+      (else (declare-multiple (cdr variables) (cdr vals) (declare-continuation (car variables) (value (car vals) environment) environment))))))
 
 (define function-stmt
   (lambda (stmt environment)
@@ -70,12 +71,11 @@
 
 (define if-stmt
   (lambda (stmt environment)
-    (let ((valenv (value (cadr stmt) environment)))
-      (if (getVal valenv)
-        (interpret-statement (caddr stmt) (getEnv valenv))
-        (if (null? (cdddr stmt))
-          (getEnv valenv)
-          (interpret-statement (cadddr stmt) (getEnv valenv)))))))
+    (if (value (cadr stmt) environment)
+      (interpret-statement (caddr stmt) environment)
+      (if (null? (cdddr stmt))
+        environment
+        (interpret-statement (cadddr stmt) environment)))))
 
 (define while-stmt
   (lambda (stmt environment)
@@ -83,17 +83,15 @@
 
 (define while-loop
   (lambda (condition body env)
-    (let ((valenv (value condition env)))
-      (if (getVal (getVal valenv))
-        (while-loop condition body (interpret-statement body (getEnv valenv)))
-        (getEnv valenv)))))
+    (if (value condition env)
+      (while-loop condition body (interpret-statement body env))
+      env)))
 
 (define declare-stmt
   (lambda (stmt environment)
     (if (null? (cddr stmt))
       (declare (cadr stmt) 'null environment)
-      (let ((valenv (value (caddr stmt) environment)))
-        (declare (cadr stmt) (getVal valenv) (getEnv valenv))))))
+      (declare (cadr stmt) (value (caddr stmt) environment) environment))))
 
 ; checks if the expression is a keyword
 (define operator?
@@ -115,23 +113,25 @@
   (lambda (name value environment)
     (cond
       ((not (eq? (lookup name environment) 'none)) (error "You cannot redefine a variable!"))
-      (else (cons (cons (makeTuple name (box value)) (car environment)) (cdr environment))))))
+      (else (cons (cons (list name (box value)) (car environment)) (cdr environment))))))
 
 ; allows redeclaring of variables, for continuations
 (define declare-continuation
   (lambda (name value environment)
-    (cons (cons (makeTuple name (box value)) (car environment)) (cdr environment))))
+    (cons (cons (list name (box value)) (car environment)) (cdr environment))))
 
 ; binds a value to a variable in the environment
 (define bind
   (lambda (name value environment)
     (cond
       ((eq? (lookup name environment) 'none) (error "You must declare a variable before assigning it"))
-      (else (makeTuple value (reassign name value environment))))))
+      (else (reassign name value environment)))))
 
 (define reassign
   (lambda (name value environment)
-    (set-box! (lookupBox name environment) value) environment))
+    (begin
+      (set-box! (lookupBox name environment) value)
+      value)))
 
 (define flatten-once
   (lambda (l)
@@ -162,45 +162,23 @@
   (lambda (name environment)
     (let ((val (lookup name environment)))
       (cond
-        ((eq? val 'none) (error "You must declare a variable before using it"))
+        ((eq? val 'none) (error "FUCK"))
+         ;(begin (display "LOOKUP")(display "\n")(display name)(display "\n")(display environment)(display "\n") (error "You must declare a variable before using it")))
         ((eq? val 'null) (error "You must assign a variable before using it"))
         (else val)))))
 
 ; gets the operator portion of a tuple
-(define operator
-  (lambda (expr)
-    (car expr)))
+(define operator car)
 
 ; gets the first operand portion of a tuple
-(define operand1
-  (lambda (expr)
-    (cadr expr)))
+(define operand1 cadr)
 
 ; gets the second operand portion of a tuple
-(define operand2
-  (lambda (expr)
-    (caddr expr)))
-
-; turns two values into a tuple
-(define makeTuple
-  (lambda (arg1 arg2)
-    (cons arg1 (cons arg2 '()))))
-
-; takes a tuple containing a value and an environment and returns the value
-(define getVal
-  (lambda (tup)
-    (if (pair? tup) (car tup) tup)))
-
-; takes a tuple containing a value and an environmment and returns the environment
-(define getEnv
-  (lambda (tup)
-    (if (pair? tup) (cadr tup) tup)))
+(define operand2 caddr)
 
 (define binaryOp
   (lambda (f expr environment)
-      (let ((valenv1 (value (operand1 expr) environment)) (valenv2 (value (operand2 expr) (getEnv (value (operand1 expr) environment)))))
-                   (makeTuple (f (getVal valenv1) (getVal valenv2))
-                   (getEnv valenv2)))))
+    (f (value (operand1 expr) environment) (value (operand2 expr) environment))))
 
 (define myand
   (lambda (a b)
@@ -213,27 +191,28 @@
 ; recursively evaluates an expression and returns the resulting environment
 (define value
   (lambda (expr environment)
+    ;(display "VALUE\n")(display expr)(display "\n")(display environment)(display "\n")
     (cond
       ((operator?  expr 'funcall) (funcall-stmt expr environment))
-      ((number? expr) (makeTuple expr environment))
-      ((eq? expr 'true) (makeTuple #t environment))
-      ((eq? expr 'false) (makeTuple #f environment))
-      ((symbol? expr) (makeTuple (lookupWithErr expr environment) environment))
-      ((null? (cdr expr)) (getVal (value (car expr) environment)))
-      ((eq? (operator expr) '=) (let ((valenv (value (operand2 expr) environment))) (bind (operand1 expr) (getVal valenv) (getEnv valenv))))
+      ((number? expr) expr)
+      ((eq? expr 'true) #t)
+      ((eq? expr 'false) #f)
+      ((symbol? expr) (lookupWithErr expr environment))
+      ((null? (cdr expr)) (value (car expr) environment))
+      ((eq? (operator expr) '=) (bind (operand1 expr) (value (operand2 expr) environment) environment))
       ((eq? (operator expr) '+) (binaryOp + expr environment))
       ((and (eq? (length expr) 3) (eq? (operator expr) '-)) (binaryOp - expr environment))
       ((eq? (operator expr) '*) (binaryOp * expr environment))
       ((eq? (operator expr) '/) (binaryOp quotient expr environment))
       ((eq? (operator expr) '%) (binaryOp remainder expr environment))
-      ((and (eq? (length expr) 2) (eq? (operator expr) '-)) (makeTuple (- (getVal(value (operand1 expr) environment))) environment))
+      ((and (eq? (length expr) 2) (eq? (operator expr) '-)) (- (value (operand1 expr) environment)))
       ((eq? (operator expr) '>) (binaryOp > expr environment))
       ((eq? (operator expr) '<) (binaryOp < expr environment))
       ((eq? (operator expr) '>=) (binaryOp >= expr environment))
       ((eq? (operator expr) '<=) (binaryOp <= expr environment))
       ((eq? (operator expr) '==) (binaryOp eq? expr environment))
-      ((eq? (operator expr) '!=) (makeTuple (not (eq? (getVal (value (operand1 expr) environment)) (getVal (value (operand2 expr) (getEnv (value (operand1 expr) environment)))))) (getEnv (value (operand2 expr) (getEnv (value (operand1 expr) environment))))))
-      ((eq? (operator expr) '!) (let ((valenv (value (operand1 expr) environment))) (makeTuple (not (getVal valenv)) (getEnv valenv))))
+      ((eq? (operator expr) '!=) (not (eq? (value (operand1 expr) environment) (value (operand2 expr) environment))))
+      ((eq? (operator expr) '!) (not (value (operand1 expr) environment)))
       ((eq? (operator expr) '&&) (binaryOp myand expr environment))
       ((eq? (operator expr) '||) (binaryOp myor expr environment))
       (else (error "wat")))))
