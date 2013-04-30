@@ -2,10 +2,16 @@
 
 (load "classParser.scm")
 
+(define base_env '())
+(define class_env '(()))
+
+(define currentclass 'none)
+
 ; main function, loops through the parse tree and calls functions to deal with the tuples.
 (define interpret
-  (lambda (filename)
-      (fixBool (call/cc (lambda (return) (interpret-statement-list (append (parser filename) '((funcall main))) (declare 'static '(()) (declare-continuation 'return return '(())))))))))
+  (lambda (filename classname)
+    (fixBool (call/cc (lambda (return)
+                        (interpret-statement-list (append (parser filename) (list (list 'funcall (list 'dot classname 'main)))) base_env))))))
 
 (define interpret-statement-list
   (lambda (parsetree environment)
@@ -22,9 +28,8 @@
   (lambda (stmt environment)
     (cond
       ((operator? stmt 'var) (declare-stmt stmt environment))
+      ((operator? stmt 'static-var) (declare-stmt stmt environment))
       ((operator? stmt 'class) (declare-class stmt environment))
-      ((operator? stmt 'static-var) (declare-static stmt environment)) 
-      ((operator? stmt 'static-function) (function-stmt stmt environment)) ; very wrong. also a placeholder
       ((operator? stmt '=) (begin (value stmt environment) environment))
       ((operator? stmt 'return) ((lookup 'return environment) (value (cadr stmt) environment)))
       ((operator? stmt 'while) (while-stmt stmt environment))
@@ -32,29 +37,31 @@
       ((operator? stmt 'continue) ((lookup 'continue environment) environment))
       ((operator? stmt 'begin) (pop-stack (begin-stmt stmt environment)))
       ((operator? stmt 'function) (function-stmt stmt environment))
-      ((operator? stmt 'funcall) (let ((funcreturn (funcall-stmt stmt environment))) (if (eq? (cadr stmt) 'main) funcreturn environment)))
+      ((operator? stmt 'static-function) (function-stmt stmt environment))
+      ((operator? stmt 'funcall) (let ((funcreturn (funcall-stmt stmt environment)))
+                                   (if (or (eq? (cadr stmt) 'main) (and (list? (cadr stmt)) (eq? (caddr (cadr stmt)) 'main))) funcreturn environment)))
       ((operator? stmt 'if) (if-stmt stmt environment))
       (else (error (string-append "Unregonized statement: " (format "~a" (operator stmt))))))))
-
-(define declare-static
-  (lambda (stmt environment)
-    (reassign 'static (declare (cadr stmt) (caddr stmt) (lookup 'static environment)) environment)))
 
 ; declares a new class in the environment
 (define declare-class
   (lambda (stmt environment)
-    (if (null? (caddr stmt))
-        (declare (cadr stmt) (cdddr stmt) environment)
-        (declare (cons (cadr stmt) (caddr stmt)) (cdddr stmt) environment))))
+    (set! currentclass (cadr stmt))
+    (let ((env (cons (list (cadr stmt) (box class_env)) environment)))
+      (begin (interpret-statement-list (cadddr stmt) env)
+             env))))
 
 (define funcall-stmt
   (lambda (stmt environment)
+    (define func (cadr stmt))
+    (define funcBody 'none)
+    (if (symbol? func) (set! funcBody (lookup func environment)) (set! funcBody (unbox (dotLookup (caddr func) environment (cadr func)))))
     (call/cc (lambda (return)
-               (if (eq? (numArguments (cddr stmt)) (numArguments (car (lookup (cadr stmt) environment))))
-                   (interpret-statement-list (cadr (lookup (cadr stmt) environment))
-                                             (declare-multiple (car (lookup (cadr stmt) environment))
-                                                               (cddr stmt) (declare-continuation 'return return (add-stack environment))))
-                   (error "Wrong number of arguments"))))))
+               (if (eq? (numArguments (cddr stmt)) (numArguments (car funcBody)))
+                 (interpret-statement-list (cadr funcBody)
+                                           (declare-multiple (car funcBody)
+                                                             (cddr stmt) (declare-continuation 'return return (add-stack environment))))
+                 (error "Wrong number of arguments"))))))
 
 (define numArguments
   (lambda (args)
@@ -81,11 +88,13 @@
 
 (define add-stack
   (lambda (environment)
-    (cons '() environment)))
+    (let ((env (lookupClass currentclass environment)))
+      (begin (set-box! env (cons '() (unbox env))) environment))))
 
 (define pop-stack
   (lambda (environment)
-    (cdr environment)))
+    (let ((env (lookupClass currentclass environment)))
+      (begin (set-box! env (cdr (unbox env))) environment))))
 
 (define if-stmt
   (lambda (stmt environment)
@@ -129,14 +138,16 @@
 ; add a value declaration to the environment
 (define declare
   (lambda (name value environment)
-    (cond
-      ((not (eq? (lookup name environment) 'none)) (error "You cannot redefine a variable!"))
-      (else (cons (cons (list name (box value)) (car environment)) (cdr environment))))))
+    (let ((env (lookupClass currentclass environment)))
+      (cond
+        ((not (eq? (lookup name environment) 'none)) (error "You cannot redefine a variable!"))
+        (else (begin (set-box! env (cons (cons (list name (box value)) (car (unbox env))) (cdr (unbox env)))) environment))))))
 
 ; allows redeclaring of variables, for continuations
 (define declare-continuation
   (lambda (name value environment)
-    (cons (cons (list name (box value)) (car environment)) (cdr environment))))
+    (let ((env (lookupClass currentclass environment)))
+      (begin (set-box! env (cons (cons (list name (box value)) (car (unbox env))) (cdr (unbox env)))) environment))))
 
 ; binds a value to a variable in the environment
 (define bind
@@ -157,6 +168,17 @@
       ((null? l) l)
       (else (append (car l) (flatten-once (cdr l)))))))
 
+(define lookupClass
+  (lambda (name environment)
+    (if (eq? (caar environment) name)
+      (cadar environment)
+      (lookupClass name (cdr environment)))))
+
+(define dotLookup
+  (lambda (name environment class)
+    (let ((env (unbox (lookupClass class environment))))
+      (_lookupBox name (flatten-once env)))))
+
 ; looks up a name in the environment and returns the value associated with it
 (define lookup
   (lambda (name environment)
@@ -164,10 +186,11 @@
 
 (define lookupBox
   (lambda (name environment)
-    (let ((lookupResult (unbox (_lookupBox name (flatten-once environment)))))
-    (if (and (symbol? lookupResult) (not (eq? lookupResult 'none)) (not (eq? lookupResult 'null)))
-        (lookupBox lookupResult environment)
-        (_lookupBox name (flatten-once environment))))))
+    (let ((env (unbox (lookupClass currentclass environment))))
+      (let ((lookupResult (unbox (_lookupBox name (flatten-once env)))))
+        (if (and (symbol? lookupResult) (not (eq? lookupResult 'none)) (not (eq? lookupResult 'null)))
+          (lookupBox lookupResult env)
+          (_lookupBox name (flatten-once env)))))))
 
 (define _lookupBox
   (lambda (name environment)
@@ -195,6 +218,8 @@
 
 (define binaryOp
   (lambda (f expr environment)
+    (println expr)
+    (println environment)
     (f (value (operand1 expr) environment) (value (operand2 expr) environment))))
 
 (define myand
@@ -210,6 +235,7 @@
   (lambda (expr environment)
     (cond
       ((operator? expr 'funcall) (funcall-stmt expr environment))
+      ((operator? expr 'dot) (unbox (dotLookup (caddr expr) environment (cadr expr))))
       ((number? expr) expr)
       ((eq? expr 'true) #t)
       ((eq? expr 'false) #f)
