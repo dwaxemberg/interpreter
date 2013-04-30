@@ -27,9 +27,11 @@
 (define interpret-statement
   (lambda (stmt environment)
     (cond
+      ((operator? stmt 'throw) (throw-stmt stmt environment))
       ((operator? stmt 'var) (declare-stmt stmt environment))
       ((operator? stmt 'static-var) (declare-stmt stmt environment))
       ((operator? stmt 'class) (declare-class stmt environment))
+      ((operator? stmt 'new) (declare-new stmt environment))
       ((operator? stmt '=) (begin (value stmt environment) environment))
       ((operator? stmt 'return) ((lookup 'return environment) (value (cadr stmt) environment)))
       ((operator? stmt 'while) (while-stmt stmt environment))
@@ -42,6 +44,17 @@
                                    (if (or (eq? (cadr stmt) 'main) (and (list? (cadr stmt)) (eq? (caddr (cadr stmt)) 'main))) funcreturn environment)))
       ((operator? stmt 'if) (if-stmt stmt environment))
       (else (error (string-append "Unregonized statement: " (format "~a" (operator stmt))))))))
+
+; throws an exception  
+(define throw-stmt
+  (lambda (stmt environment)
+    (error (cadr stmt))))
+  
+; declares a new instance
+(define declare-new
+  (lambda (stmt environment)
+    (let ((env (cons (list (car stmt) (box class_env)) environment)))
+      (set-box! (lookupClass 'new env) (unbox (lookupClass (cadr stmt) env))) (display env))))
 
 ; declares a new class in the environment
 (define declare-class
@@ -75,7 +88,7 @@
     (cond
       ((null? variables) environment)
       ((eq? (car variables) '&) (declare-multiple (cddr variables) (cdr vals) (declare-continuation (cadr variables) (car vals) environment)))
-      (else (declare-multiple (cdr variables) (cdr vals) (declare-continuation (car variables) (value (car vals) (pop-stack environment)) environment))))))
+      (else (declare-multiple (cdr variables) (cdr vals) (declare-continuation (car variables) (value (car vals) environment) environment))))))
 
 (define function-stmt
   (lambda (stmt environment)
@@ -170,13 +183,17 @@
 
 (define lookupClass
   (lambda (name environment)
-    (if (eq? (caar environment) name)
-      (cadar environment)
-      (lookupClass name (cdr environment)))))
+    (cond
+      ((null? environment) '())                                                                           
+      ((eq? (caar environment) name)(cadar environment))
+      (else (lookupClass name (cdr environment))))))
 
 (define dotLookup
   (lambda (name environment class)
-    (let ((env (unbox (lookupClass class environment))))
+    (let ((env
+           (unbox (if (null? (lookupClass class environment))
+               (lookupClass class (flatten-once (unbox (lookupClass currentclass environment))))
+               (lookupClass class environment)))))
       (_lookupBox name (flatten-once env)))))
 
 ; looks up a name in the environment and returns the value associated with it
@@ -218,8 +235,8 @@
 
 (define binaryOp
   (lambda (f expr environment)
-    (println expr)
-    (println environment)
+    ;(println expr)
+    ;(println environment)
     (f (value (operand1 expr) environment) (value (operand2 expr) environment))))
 
 (define myand
@@ -234,6 +251,7 @@
 (define value
   (lambda (expr environment)
     (cond
+      ((operator? expr 'new) (unbox (lookupClass (cadr expr) environment)))
       ((operator? expr 'funcall) (funcall-stmt expr environment))
       ((operator? expr 'dot) (unbox (dotLookup (caddr expr) environment (cadr expr))))
       ((number? expr) expr)
@@ -257,4 +275,4 @@
       ((eq? (operator expr) '!) (not (value (operand1 expr) environment)))
       ((eq? (operator expr) '&&) (binaryOp myand expr environment))
       ((eq? (operator expr) '||) (binaryOp myor expr environment))
-      (else (error "wat")))))
+      (else (error (string-append "wat? " (format "~a" expr)))))))
