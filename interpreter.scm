@@ -1,11 +1,11 @@
 ; Written by Diego Waxemberg & Aaron Neyer
 
-(load "functionParser.scm")
+(load "classParser.scm")
 
 ; main function, loops through the parse tree and calls functions to deal with the tuples.
 (define interpret
   (lambda (filename)
-      (fixBool (call/cc (lambda (return) (interpret-statement-list (append (parser filename) '((funcall main))) (declare-continuation 'return return '(()))))))))
+      (fixBool (call/cc (lambda (return) (interpret-statement-list (append (parser filename) '((funcall main))) (declare 'static '(()) (declare-continuation 'return return '(())))))))))
 
 (define interpret-statement-list
   (lambda (parsetree environment)
@@ -23,6 +23,8 @@
     (cond
       ((operator? stmt 'var) (declare-stmt stmt environment))
       ((operator? stmt 'class) (declare-class stmt environment))
+      ((operator? stmt 'static-var) (declare-static stmt environment)) 
+      ((operator? stmt 'static-function) (function-stmt stmt environment)) ; very wrong. also a placeholder
       ((operator? stmt '=) (begin (value stmt environment) environment))
       ((operator? stmt 'return) ((lookup 'return environment) (value (cadr stmt) environment)))
       ((operator? stmt 'while) (while-stmt stmt environment))
@@ -34,6 +36,11 @@
       ((operator? stmt 'if) (if-stmt stmt environment))
       (else (error (string-append "Unregonized statement: " (format "~a" (operator stmt))))))))
 
+(define declare-static
+  (lambda (stmt environment)
+    (reassign 'static (declare (cadr stmt) (caddr stmt) (lookup 'static environment)) environment)))
+
+; declares a new class in the environment
 (define declare-class
   (lambda (stmt environment)
     (if (null? (caddr stmt))
