@@ -10,6 +10,7 @@
 ; main function, loops through the parse tree and calls functions to deal with the tuples.
 (define interpret
   (lambda (filename classname)
+    (if (string? classname) (set! classname (string->symbol classname)) 1)
     (fixBool (call/cc (lambda (return)
                         (interpret-statement-list (append (parser filename) (list (list 'funcall (list 'dot classname 'main)))) base_env))))))
 
