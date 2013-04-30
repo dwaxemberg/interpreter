@@ -191,9 +191,15 @@
 (define dotLookup
   (lambda (name environment class)
     (let ((env
-           (unbox (if (null? (lookupClass class environment))
-               (lookupClass class (flatten-once (unbox (lookupClass currentclass environment))))
-               (lookupClass class environment)))))
+               (unbox (if (null? (lookupClass (if (eq? 'this class)
+                                                  currentclass
+                                                  class) environment))
+                          (lookupClass (if (eq? 'this class)
+                                                  currentclass
+                                                  class) (flatten-once (unbox (lookupClass currentclass environment))))
+                          (lookupClass (if (eq? 'this class)
+                                                  currentclass
+                                                  class) environment)))))
       (_lookupBox name (flatten-once env)))))
 
 ; looks up a name in the environment and returns the value associated with it
